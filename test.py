@@ -38,7 +38,7 @@ def do_register():
         'Content-Type': 'application/json'
     }
     data = {
-        'nodes': [URL]
+        'nodes': [URL.replace('5001', '5000') if '5001' in URL else URL.replace('5000', '5001')]
     }
     res = requests.post(URL, headers=headers, json=data)
     pprint(json.loads(res.text))
@@ -55,4 +55,4 @@ if __name__ == '__main__':
     # do_new_transaction()
     # do_get_chain()
     # do_resolve()
-    do_register()
+    # do_register()
