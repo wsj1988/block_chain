@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import hashlib
 import json
 import time
@@ -27,9 +26,28 @@ class Blockchain(object):
         :param address: <str> Address of node. Eg. 'http://192.168.0.5:5000'
         :return: None
         """
+        
         parsed_url = urlparse(address)
         self.nodes.add(parsed_url.netloc)
 
+
+    def new_transaction(self, sender, recipient, amount):
+        # Adds a new transaction to the list of transactions
+        """
+        生成新交易信息，信息将加入到下一个待挖的的区块中
+        : param sender: <str> Address of the Sender
+        : param reciptient: <str> Address of the Recipient
+        : param amount: <int> Amount
+        : return: <int> The index of the Block that will hold this transaction
+        """
+        
+        self.current_transactions.append({
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount
+        })
+        return self.last_block['index'] + 1
+    
 
     def new_block(self, proof, previous_hash=None):
         # Creates a new Block and adds it to the chain
@@ -53,25 +71,7 @@ class Blockchain(object):
 
         self.chain.append(block)
         return block
-
-
-    def new_transaction(self, sender, recipient, amount):
-        # Adds a new transaction to the list of transactions
-        """
-        生成新交易信息，信息将加入到下一个待挖的的区块中
-        : param sender: <str> Address of the Sender
-        : param reciptient: <str> Address of the Recipient
-        : param amount: <int> Amount
-        : return: <int> The index of the Block that will hold this transaction
-        """
-        self.current_transactions.append({
-            'sender': sender,
-            'recipient': recipient,
-            'amount': amount
-        })
-        return self.last_block['index'] + 1
-
-
+    
     
     def proof_of_work(self, last_proof):
         """
@@ -84,10 +84,22 @@ class Blockchain(object):
         
         proof = 0
         while self.valid_proof(last_proof, proof) is False:
-            last_proof = proof
             proof += 1
-
         return proof
+
+
+    @staticmethod
+    def valid_proof(last_proof, proof):
+        """
+        验证证明：是否 hash(last_proof, proof) 以4个0开头？
+        :param last_proof: <int> Previous Proof
+        :param proof: <int> Current Proof
+        :return: <bool> True if correct, False if not.
+        """
+
+        guess = (str(last_proof) + str(proof)).encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:4] == '0' * 4
 
 
     def valid_chain(self, chain):
@@ -102,8 +114,8 @@ class Blockchain(object):
 
         while current_index < len(chain):
             block = chain[current_index]
-            print str(last_block)
-            print str(block)
+            print 'last_block: ', str(last_block)
+            print 'block: ', str(block)
             print '-------------------'
 
             # Check that the hash of the block is correct
@@ -126,7 +138,7 @@ class Blockchain(object):
         使用网络中最长的链
         :return: <bool> True 如果链被取代，否则为False
         """
-        print 'neighbours: ', self.nodes
+        
         neighbours = self.nodes
         new_chain = None
 
@@ -135,10 +147,7 @@ class Blockchain(object):
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
-            print 'query neighbour: ', 'http://%s/chain' % node
             response = requests.get('http://%s/chain' % node)
-            print response.status_code
-            print response.text
 
             if response.status_code == 200:
                 length = response.json()['length']
@@ -155,20 +164,6 @@ class Blockchain(object):
             return True
         
         return False
-
-
-    @staticmethod
-    def valid_proof(last_proof, proof):
-        """
-        验证证明：是否 hash(last_proof, proof) 以4个0开头？
-        :param last_proof: <int> Previous Proof
-        :param proof: <int> Current Proof
-        :return: <bool> True if correct, False if not.
-        """
-
-        guess = str(last_proof * proof).encode()
-        guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == '0' * 4
 
 
     @staticmethod
@@ -189,8 +184,3 @@ class Blockchain(object):
     def last_block(self):
         # Returns the last Block in the chain
         return self.chain[-1]
-
-
-if __name__ == '__main__':
-    bc = Blockchain()
-    bc.resolve_conflicts()
